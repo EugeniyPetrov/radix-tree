@@ -163,53 +163,49 @@ func (n *Node) String() string {
 
 func (n *Node) Find(s string) []string {
 	var results []string
-	n.find(s, 0, "", &results)
+	accPattern := make([]byte, 0, 100) // Preallocate buffer with a reasonable capacity
+	n.find(s, 0, accPattern, 0, &results)
 	return results
 }
 
-func (n *Node) find(s string, pos int, accPattern string, results *[]string) {
-	var matchPrefix func(pattern string, pIdx int, s string, sIdx int) []int
-
-	matchPrefix = func(pattern string, pIdx int, s string, sIdx int) []int {
-		var endPositions []int
-
-		if pIdx == len(pattern) {
-			endPositions = append(endPositions, sIdx)
-			return endPositions
-		}
-
-		if sIdx > len(s) {
-			return endPositions
-		}
-
-		c := pattern[pIdx]
-
-		if c == '*' {
-			endPositions = append(endPositions, matchPrefix(pattern, pIdx+1, s, sIdx)...)
-			if sIdx < len(s) {
-				endPositions = append(endPositions, matchPrefix(pattern, pIdx, s, sIdx+1)...)
-			}
-		} else if c == '?' {
-			if sIdx < len(s) {
-				endPositions = append(endPositions, matchPrefix(pattern, pIdx+1, s, sIdx+1)...)
-			}
-		} else {
-			if sIdx < len(s) && pattern[pIdx] == s[sIdx] {
-				endPositions = append(endPositions, matchPrefix(pattern, pIdx+1, s, sIdx+1)...)
-			}
-		}
-
-		return endPositions
+func matchPrefix(pattern string, pIdx int, s string, sIdx int, onMatch func(int)) {
+	if pIdx == len(pattern) {
+		onMatch(sIdx)
+		return
 	}
 
-	endPositions := matchPrefix(n.prefix, 0, s, pos)
+	if sIdx > len(s) {
+		return
+	}
 
-	for _, endPos := range endPositions {
-		newAccPattern := accPattern + n.prefix
+	c := pattern[pIdx]
+
+	if c == '*' {
+		matchPrefix(pattern, pIdx+1, s, sIdx, onMatch)
+		if sIdx < len(s) {
+			matchPrefix(pattern, pIdx, s, sIdx+1, onMatch)
+		}
+	} else if c == '?' {
+		if sIdx < len(s) {
+			matchPrefix(pattern, pIdx+1, s, sIdx+1, onMatch)
+		}
+	} else {
+		if sIdx < len(s) && c == s[sIdx] {
+			matchPrefix(pattern, pIdx+1, s, sIdx+1, onMatch)
+		}
+	}
+}
+
+func (n *Node) find(s string, pos int, accPattern []byte, patternLen int, results *[]string) {
+	matchFunc := func(endPos int) {
+		// Append n.prefix to accPattern
+		start := patternLen
+		accPattern = append(accPattern[:patternLen], n.prefix...)
+		patternLen += len(n.prefix)
 
 		if endPos == len(s) {
 			if _, ok := n.child[Term]; ok {
-				*results = append(*results, newAccPattern)
+				*results = append(*results, string(accPattern[:patternLen]))
 			}
 		}
 
@@ -217,7 +213,12 @@ func (n *Node) find(s string, pos int, accPattern string, results *[]string) {
 			if r == Term {
 				continue
 			}
-			child.find(s, endPos, newAccPattern, results)
+			child.find(s, endPos, accPattern, patternLen, results)
 		}
+
+		// Backtrack patternLen for the next iteration
+		patternLen = start
 	}
+
+	matchPrefix(n.prefix, 0, s, pos, matchFunc)
 }
