@@ -2,7 +2,6 @@ package radix_tree
 
 import (
 	"github.com/magiconair/properties/assert"
-	"log"
 	"slices"
 	"testing"
 )
@@ -22,13 +21,42 @@ func TestRadix(t *testing.T) {
 	r.Add("b*d")
 	r.Add("*")
 
-	for _, v := range r.Find("abc") {
-		log.Println(v)
-	}
-
 	assertEqual(t,
 		r.Find("abc"),
 		[]string{"abc", "*bc", "*"},
+	)
+}
+
+func TestRadix2(t *testing.T) {
+	r := NewRadix()
+	r.Add("a*c")
+	r.Add("*")
+
+	assertEqual(t,
+		r.Find("abbc"),
+		[]string{"a*c", "*"},
+	)
+}
+
+func TestRadix3(t *testing.T) {
+	r := NewRadix()
+	r.Add("a?c")
+	r.Add("*")
+
+	assertEqual(t,
+		r.Find("abbc"),
+		[]string{"*"},
+	)
+}
+
+func TestRadix4(t *testing.T) {
+	r := NewRadix()
+	r.Add("a?c")
+	r.Add("*")
+
+	assertEqual(t,
+		r.Find("abc"),
+		[]string{"a?c", "*"},
 	)
 }
 
